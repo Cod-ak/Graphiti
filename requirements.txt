@@ -1,0 +1,20 @@
+# Graphiti - Minimal & Optional Dependencies
+# Core Graphiti requires Python 3.8+ and standard libraries only (Zero mandatory dependencies).
+
+# Optional: Fast Git history rewriter for large repositories (Feature 2: merge)
+# If not installed, Graphiti seamlessly falls back to built-in git filter-branch.
+git-filter-repo>=2.38.0
+
+# Optional: ANSI color support on legacy Windows cmd.exe consoles
+colorama>=0.4.6
+
+# Optional: Image rasterization and CLI image conversion
+Pillow>=10.0.0
+
+# Optional: Running unit test suite
+pytest>=7.4.0
+
+# Web API / Vercel Serverless
+fastapi>=0.110.0
+uvicorn>=0.28.0
+pydantic>=2.0.0
