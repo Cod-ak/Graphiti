@@ -73,7 +73,7 @@ export default function Home() {
   // Load presets list on mount
   useEffect(() => {
     fetch("/api/presets")
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.presets) {
           setPresetsList(data.presets.map((p: any) => p.name));
@@ -97,7 +97,7 @@ export default function Home() {
             level: 4,
           }),
         })
-          .then((res) => res.json())
+          .then((res) => (res.ok ? res.json() : null))
           .then((data) => {
             if (data?.grid) setGrid(data.grid);
           })
@@ -111,7 +111,7 @@ export default function Home() {
   const handleSelectPreset = (name: string) => {
     setSelectedPreset(name);
     fetch("/api/presets")
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         const found = data?.presets?.find((p: any) => p.name === name);
         if (found?.grid) setGrid(found.grid);
@@ -167,6 +167,9 @@ export default function Home() {
           repo_name: "my-github-art",
         }),
       });
+      if (!res.ok) {
+        throw new Error(`Server returned status ${res.status}`);
+      }
       const data = await res.json();
       if (data?.powershell) {
         setPowershellScript(data.powershell);

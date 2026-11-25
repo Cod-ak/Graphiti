@@ -9,8 +9,13 @@ from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Ensure graphiti_engine is in the Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Ensure graphiti_engine is in the Python path (both current dir and parent)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
 
 from graphiti_engine.font import render_text_to_matrix
 from graphiti_engine.presets import get_preset_matrix, list_presets
