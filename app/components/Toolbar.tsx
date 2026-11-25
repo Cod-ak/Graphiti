@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import {
   Type,
   Sparkles,
@@ -9,15 +9,17 @@ import {
   Trash2,
   ArrowLeft,
   ArrowRight,
-  ArrowUp,
-  ArrowDown,
+  PaintBucket,
+  RefreshCw,
   Calendar,
-  Layers,
+  Check,
 } from "lucide-react";
 
 interface ToolbarProps {
-  mode: "text" | "preset" | "draw";
-  setMode: (m: "text" | "preset" | "draw") => void;
+  // Mode
+  generatorMode: "text" | "preset";
+  setGeneratorMode: (m: "text" | "preset") => void;
+
   // Text Mode
   text: string;
   setText: (t: string) => void;
@@ -25,19 +27,25 @@ interface ToolbarProps {
   setTextAlign: (a: "left" | "center" | "right") => void;
   charSpacing: number;
   setCharSpacing: (s: number) => void;
-  offsetWeeks: number;
-  setOffsetWeeks: (o: number) => void;
-  // Presets
+  textLevel: number;
+  setTextLevel: (lvl: number) => void;
+  onApplyText: () => void;
+
+  // Presets Mode
   selectedPreset: string;
-  onSelectPreset: (name: string) => void;
+  setSelectedPreset: (name: string) => void;
   presetsList: string[];
-  // Draw Mode
-  activeTool: "pencil" | "eraser";
-  setActiveTool: (t: "pencil" | "eraser") => void;
+  onApplyPreset: () => void;
+
+  // Draw Tools
+  activeTool: "pencil" | "eraser" | "bucket";
+  setActiveTool: (t: "pencil" | "eraser" | "bucket") => void;
   activeLevel: number;
   setActiveLevel: (lvl: number) => void;
   onClear: () => void;
-  onShift: (dir: "up" | "down" | "left" | "right") => void;
+  onInvert: () => void;
+  onShift: (dir: "left" | "right" | "up" | "down") => void;
+
   // Target Calendar
   targetYear: number;
   setTargetYear: (y: number) => void;
@@ -54,258 +62,319 @@ const PRESET_LABELS: Record<string, { label: string; icon: string }> = {
   stars: { label: "Constellations", icon: "✨" },
 };
 
+const SHADE_BUTTONS = [
+  { lvl: 0, bg: "bg-[#161b22] border-[#30363d]", label: "0: None" },
+  { lvl: 1, bg: "bg-[#0e4429] border-[#0e4429]", label: "1: Light" },
+  { lvl: 2, bg: "bg-[#006d32] border-[#006d32]", label: "2: Medium" },
+  { lvl: 3, bg: "bg-[#26a641] border-[#26a641]", label: "3: Dark" },
+  { lvl: 4, bg: "bg-[#39d353] border-[#39d353]", label: "4: Deepest" },
+];
+
 export default function Toolbar({
-  mode,
-  setMode,
+  generatorMode,
+  setGeneratorMode,
   text,
   setText,
   textAlign,
   setTextAlign,
   charSpacing,
   setCharSpacing,
-  offsetWeeks,
-  setOffsetWeeks,
+  textLevel,
+  setTextLevel,
+  onApplyText,
   selectedPreset,
-  onSelectPreset,
+  setSelectedPreset,
   presetsList,
+  onApplyPreset,
   activeTool,
   setActiveTool,
   activeLevel,
   setActiveLevel,
   onClear,
+  onInvert,
   onShift,
   targetYear,
   setTargetYear,
 }: ToolbarProps) {
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4 shadow-xl space-y-4">
-      {/* Mode Navigation Tabs */}
-      <div className="flex border-b border-[#30363d] pb-3 gap-2">
-        <button
-          onClick={() => setMode("text")}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-            mode === "text"
-              ? "bg-[#21262d] text-[#58a6ff] border border-[#30363d]"
-              : "text-[#8b949e] hover:text-white hover:bg-[#21262d]/50"
-          }`}
-        >
-          <Type className="w-4 h-4" />
-          Text Banner
-        </button>
-
-        <button
-          onClick={() => setMode("preset")}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-            mode === "preset"
-              ? "bg-[#21262d] text-[#58a6ff] border border-[#30363d]"
-              : "text-[#8b949e] hover:text-white hover:bg-[#21262d]/50"
-          }`}
-        >
-          <Sparkles className="w-4 h-4" />
-          8-Bit Presets
-        </button>
-
-        <button
-          onClick={() => setMode("draw")}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-            mode === "draw"
-              ? "bg-[#21262d] text-[#58a6ff] border border-[#30363d]"
-              : "text-[#8b949e] hover:text-white hover:bg-[#21262d]/50"
-          }`}
-        >
-          <Pencil className="w-4 h-4" />
-          Freehand Draw
-        </button>
-      </div>
-
-      {/* Sub-Panel: TEXT MODE */}
-      {mode === "text" && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          <div className="space-y-1.5 md:col-span-2">
-            <label className="text-xs font-medium text-[#8b949e]">Banner Text</label>
-            <input
-              type="text"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="e.g. HIRE ME, 2025, CODE"
-              maxLength={12}
-              className="w-full bg-[#0d1117] border border-[#30363d] focus:border-[#58a6ff] text-white px-3 py-1.5 rounded-lg text-sm font-mono tracking-wider focus:outline-none"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-[#8b949e]">Alignment</label>
-            <div className="flex bg-[#0d1117] p-1 rounded-lg border border-[#30363d]">
-              {(["left", "center", "right"] as const).map((align) => (
-                <button
-                  key={align}
-                  onClick={() => setTextAlign(align)}
-                  className={`flex-1 py-1 rounded text-xs font-medium capitalize ${
-                    textAlign === align ? "bg-[#21262d] text-white" : "text-[#8b949e]"
-                  }`}
-                >
-                  {align}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-[#8b949e]">Letter Spacing</label>
-            <div className="flex items-center gap-2 bg-[#0d1117] px-3 py-1.5 rounded-lg border border-[#30363d]">
-              <input
-                type="range"
-                min="0"
-                max="3"
-                value={charSpacing}
-                onChange={(e) => setCharSpacing(Number(e.target.value))}
-                className="w-full accent-[#238636]"
-              />
-              <span className="text-xs font-mono text-white w-4">{charSpacing}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sub-Panel: PRESETS MODE */}
-      {mode === "preset" && (
-        <div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {presetsList.map((p) => {
-              const meta = PRESET_LABELS[p] || { label: p, icon: "🎨" };
-              const isSelected = selectedPreset === p;
-              return (
-                <button
-                  key={p}
-                  onClick={() => onSelectPreset(p)}
-                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-left text-xs font-medium transition-all ${
-                    isSelected
-                      ? "bg-[#238636]/20 border-[#238636] text-white shadow-sm shadow-[#238636]/30"
-                      : "bg-[#0d1117] border-[#30363d] text-[#8b949e] hover:text-white hover:border-[#8b949e]/50"
-                  }`}
-                >
-                  <span className="text-base">{meta.icon}</span>
-                  <span>{meta.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Sub-Panel: DRAW MODE */}
-      {mode === "draw" && (
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          {/* Tools & Levels */}
-          <div className="flex items-center gap-3">
-            <div className="flex bg-[#0d1117] p-1 rounded-lg border border-[#30363d]">
-              <button
-                onClick={() => setActiveTool("pencil")}
-                className={`p-1.5 rounded ${
-                  activeTool === "pencil" ? "bg-[#21262d] text-white" : "text-[#8b949e]"
-                }`}
-                title="Pencil Brush"
-              >
-                <Pencil className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setActiveTool("eraser")}
-                className={`p-1.5 rounded ${
-                  activeTool === "eraser" ? "bg-[#21262d] text-white" : "text-[#8b949e]"
-                }`}
-                title="Eraser"
-              >
-                <Eraser className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Brush Shading Selector */}
-            {activeTool === "pencil" && (
-              <div className="flex items-center gap-1.5 bg-[#0d1117] px-2.5 py-1.5 rounded-lg border border-[#30363d]">
-                <span className="text-[11px] text-[#8b949e] mr-1">Shade:</span>
-                {[
-                  { lvl: 1, bg: "bg-[#0e4429]" },
-                  { lvl: 2, bg: "bg-[#006d32]" },
-                  { lvl: 3, bg: "bg-[#26a641]" },
-                  { lvl: 4, bg: "bg-[#39d353]" },
-                ].map(({ lvl, bg }) => (
-                  <button
-                    key={lvl}
-                    onClick={() => setActiveLevel(lvl)}
-                    className={`w-5 h-5 rounded-[3px] border ${bg} ${
-                      activeLevel === lvl ? "ring-2 ring-white scale-110" : "opacity-80"
-                    }`}
-                    title={`Level ${lvl}`}
-                  />
-                ))}
-              </div>
-            )}
-
+    <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 shadow-2xl space-y-5">
+      {/* 1. PERMANENT CANVAS TOOLBAR (Always Visible at Top) */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#30363d]">
+        {/* Draw Tools (Pencil, Eraser, Bucket) */}
+        <div className="flex items-center gap-3">
+          <div className="flex bg-[#0d1117] p-1 rounded-xl border border-[#30363d]">
             <button
-              onClick={onClear}
-              className="flex items-center gap-1 text-xs text-[#f85149] hover:bg-[#f85149]/10 px-2.5 py-1.5 rounded-lg border border-[#f85149]/30 transition-all"
+              onClick={() => setActiveTool("pencil")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTool === "pencil"
+                  ? "bg-[#21262d] text-white shadow-sm border border-[#30363d]"
+                  : "text-[#8b949e] hover:text-white"
+              }`}
+              title="Pencil Brush"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              Clear
+              <Pencil className="w-3.5 h-3.5" />
+              <span>Draw</span>
+            </button>
+            <button
+              onClick={() => setActiveTool("eraser")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTool === "eraser"
+                  ? "bg-[#21262d] text-white shadow-sm border border-[#30363d]"
+                  : "text-[#8b949e] hover:text-white"
+              }`}
+              title="Eraser"
+            >
+              <Eraser className="w-3.5 h-3.5" />
+              <span>Erase</span>
+            </button>
+            <button
+              onClick={() => setActiveTool("bucket")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTool === "bucket"
+                  ? "bg-[#21262d] text-white shadow-sm border border-[#30363d]"
+                  : "text-[#8b949e] hover:text-white"
+              }`}
+              title="Bucket Flood Fill"
+            >
+              <PaintBucket className="w-3.5 h-3.5" />
+              <span>Fill</span>
             </button>
           </div>
 
-          {/* Shift Controls */}
-          <div className="flex items-center gap-1 bg-[#0d1117] p-1 rounded-lg border border-[#30363d]">
-            <span className="text-[10px] text-[#8b949e] px-1 font-mono uppercase">Nudge:</span>
+          {/* Palette Shades 0 - 4 */}
+          <div className="flex items-center gap-1.5 bg-[#0d1117] px-3 py-1.5 rounded-xl border border-[#30363d]">
+            <span className="text-[11px] text-[#8b949e] font-mono mr-1">Shades:</span>
+            {SHADE_BUTTONS.map(({ lvl, bg, label }) => (
+              <button
+                key={lvl}
+                onClick={() => {
+                  setActiveLevel(lvl);
+                  if (lvl > 0 && activeTool === "eraser") setActiveTool("pencil");
+                }}
+                className={`w-5 h-5 rounded-[3px] border ${bg} transition-all ${
+                  activeLevel === lvl && activeTool !== "eraser"
+                    ? "ring-2 ring-white scale-110 shadow-md"
+                    : "opacity-80 hover:opacity-100"
+                }`}
+                title={label}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Global Manipulators: Shift, Invert, Clear */}
+        <div className="flex items-center gap-2">
+          {/* Week Shift */}
+          <div className="flex bg-[#0d1117] p-1 rounded-xl border border-[#30363d]">
             <button
               onClick={() => onShift("left")}
-              className="p-1 hover:bg-[#21262d] text-[#8b949e] hover:text-white rounded"
-              title="Shift Left"
+              className="flex items-center gap-1 px-2.5 py-1 text-xs text-[#8b949e] hover:text-white hover:bg-[#21262d] rounded-lg transition-all"
+              title="Shift Canvas Left by 1 Week"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
+              <span>◄ Week</span>
             </button>
             <button
               onClick={() => onShift("right")}
-              className="p-1 hover:bg-[#21262d] text-[#8b949e] hover:text-white rounded"
-              title="Shift Right"
+              className="flex items-center gap-1 px-2.5 py-1 text-xs text-[#8b949e] hover:text-white hover:bg-[#21262d] rounded-lg transition-all"
+              title="Shift Canvas Right by 1 Week"
             >
+              <span>Week ►</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
+          </div>
+
+          {/* Invert */}
+          <button
+            onClick={onInvert}
+            className="flex items-center gap-1.5 text-xs text-[#8b949e] hover:text-white bg-[#0d1117] hover:bg-[#21262d] px-3 py-2 rounded-xl border border-[#30363d] transition-all"
+            title="Invert shaded and empty cells"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Invert</span>
+          </button>
+
+          {/* Clear */}
+          <button
+            onClick={onClear}
+            className="flex items-center gap-1.5 text-xs text-[#f85149] hover:bg-[#f85149]/15 px-3 py-2 rounded-xl border border-[#f85149]/30 transition-all"
+            title="Clear all pixels"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Clear</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 2. GENERATOR DECK (Tab Switcher for Text vs Presets) */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex bg-[#0d1117] p-1 rounded-xl border border-[#30363d]">
             <button
-              onClick={() => onShift("up")}
-              className="p-1 hover:bg-[#21262d] text-[#8b949e] hover:text-white rounded"
-              title="Shift Up"
+              onClick={() => setGeneratorMode("text")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                generatorMode === "text"
+                  ? "bg-[#238636] text-white shadow-md shadow-[#238636]/30"
+                  : "text-[#8b949e] hover:text-white"
+              }`}
             >
-              <ArrowUp className="w-3.5 h-3.5" />
+              <Type className="w-4 h-4" />
+              <span>Text Banner Generator</span>
             </button>
             <button
-              onClick={() => onShift("down")}
-              className="p-1 hover:bg-[#21262d] text-[#8b949e] hover:text-white rounded"
-              title="Shift Down"
+              onClick={() => setGeneratorMode("preset")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                generatorMode === "preset"
+                  ? "bg-[#238636] text-white shadow-md shadow-[#238636]/30"
+                  : "text-[#8b949e] hover:text-white"
+              }`}
             >
-              <ArrowDown className="w-3.5 h-3.5" />
+              <Sparkles className="w-4 h-4" />
+              <span>8-Bit Pixel Presets</span>
             </button>
           </div>
-        </div>
-      )}
 
-      {/* Target Year Configuration Footer */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#30363d]/50 text-xs">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-[#58a6ff]" />
-          <span className="text-[#8b949e]">Target Calendar Year:</span>
-          <select
-            value={targetYear}
-            onChange={(e) => setTargetYear(Number(e.target.value))}
-            className="bg-[#0d1117] border border-[#30363d] text-white px-2.5 py-1 rounded-md text-xs font-mono focus:outline-none focus:border-[#58a6ff]"
-          >
-            {[2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018].map((y) => (
-              <option key={y} value={y}>
-                {y} {y <= 2021 ? "(Clean Canvas Recommended)" : ""}
-              </option>
-            ))}
-          </select>
+          {/* Target Calendar Year */}
+          <div className="flex items-center gap-2 bg-[#0d1117] px-3 py-1.5 rounded-xl border border-[#30363d]">
+            <Calendar className="w-3.5 h-3.5 text-[#8b949e]" />
+            <span className="text-xs text-[#8b949e]">Target Year:</span>
+            <select
+              value={targetYear}
+              onChange={(e) => setTargetYear(Number(e.target.value))}
+              className="bg-transparent text-xs font-mono text-white focus:outline-none cursor-pointer"
+            >
+              {[2026, 2025, 2024, 2023, 2022, 2021, 2020].map((y) => (
+                <option key={y} value={y} className="bg-[#161b22] text-white">
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="text-[11px] text-[#8b949e]">
-          💡 Tip: Picking an older empty year keeps your real coding history clean and untouched.
-        </div>
+        {/* Panel A: Text Banner Generator */}
+        {generatorMode === "text" && (
+          <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-4 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+              {/* Text Input */}
+              <div className="md:col-span-5 space-y-1.5">
+                <label className="text-xs font-medium text-[#8b949e]">
+                  Banner Text (A-Z, 0-9, Symbols)
+                </label>
+                <input
+                  type="text"
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder="e.g. HIRE ME, 2026, CODE"
+                  maxLength={14}
+                  className="w-full bg-[#161b22] border border-[#30363d] focus:border-[#238636] text-white px-3.5 py-2 rounded-lg text-sm font-mono tracking-wider focus:outline-none focus:ring-1 focus:ring-[#238636]"
+                />
+              </div>
+
+              {/* Alignment */}
+              <div className="md:col-span-3 space-y-1.5">
+                <label className="text-xs font-medium text-[#8b949e]">Alignment</label>
+                <div className="flex bg-[#161b22] p-1 rounded-lg border border-[#30363d]">
+                  {(["left", "center", "right"] as const).map((align) => (
+                    <button
+                      key={align}
+                      onClick={() => setTextAlign(align)}
+                      className={`flex-1 py-1 rounded text-xs font-medium capitalize transition-all ${
+                        textAlign === align
+                          ? "bg-[#21262d] text-white font-semibold"
+                          : "text-[#8b949e] hover:text-white"
+                      }`}
+                    >
+                      {align}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Letter Spacing */}
+              <div className="md:col-span-2 space-y-1.5">
+                <label className="text-xs font-medium text-[#8b949e]">Letter Spacing</label>
+                <div className="flex items-center gap-2 bg-[#161b22] px-3 py-2 rounded-lg border border-[#30363d]">
+                  <input
+                    type="range"
+                    min="0"
+                    max="3"
+                    value={charSpacing}
+                    onChange={(e) => setCharSpacing(Number(e.target.value))}
+                    className="w-full accent-[#238636] cursor-pointer"
+                  />
+                  <span className="text-xs font-mono text-white w-4">{charSpacing}</span>
+                </div>
+              </div>
+
+              {/* Text Shade */}
+              <div className="md:col-span-2 space-y-1.5">
+                <label className="text-xs font-medium text-[#8b949e]">Shade Level</label>
+                <select
+                  value={textLevel}
+                  onChange={(e) => setTextLevel(Number(e.target.value))}
+                  className="w-full bg-[#161b22] border border-[#30363d] text-white px-2.5 py-2 rounded-lg text-xs font-mono focus:outline-none focus:border-[#238636] cursor-pointer"
+                >
+                  <option value={4}>Level 4 (Deepest)</option>
+                  <option value={3}>Level 3 (Dark)</option>
+                  <option value={2}>Level 2 (Medium)</option>
+                  <option value={1}>Level 1 (Light)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* ACTION BUTTON: Render Text onto Canvas */}
+            <div className="flex justify-end pt-2 border-t border-[#30363d]/50">
+              <button
+                onClick={onApplyText}
+                className="flex items-center gap-2 bg-[#238636] hover:bg-[#2ea043] text-white px-5 py-2 rounded-lg text-xs font-bold transition-all shadow-lg shadow-[#238636]/30 active:scale-95 cursor-pointer"
+              >
+                <Check className="w-4 h-4" />
+                <span>Render Text onto Canvas</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Panel B: 8-Bit Pixel Presets */}
+        {generatorMode === "preset" && (
+          <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-4 space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {presetsList.map((p) => {
+                const meta = PRESET_LABELS[p] || { label: p, icon: "🎨" };
+                const isSelected = selectedPreset === p;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setSelectedPreset(p)}
+                    className={`flex items-center gap-2.5 p-3 rounded-xl border text-left text-xs font-medium transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-[#238636]/20 border-[#238636] text-white shadow-md shadow-[#238636]/30 ring-1 ring-[#238636]"
+                        : "bg-[#161b22] border-[#30363d] text-[#8b949e] hover:text-white hover:border-[#8b949e]/50"
+                    }`}
+                  >
+                    <span className="text-xl">{meta.icon}</span>
+                    <span className="font-semibold">{meta.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ACTION BUTTON: Load Preset onto Canvas */}
+            <div className="flex items-center justify-between pt-2 border-t border-[#30363d]/50">
+              <span className="text-xs text-[#8b949e] font-mono">
+                Selected: <strong className="text-white">{PRESET_LABELS[selectedPreset]?.label || selectedPreset}</strong>
+              </span>
+              <button
+                onClick={onApplyPreset}
+                className="flex items-center gap-2 bg-[#238636] hover:bg-[#2ea043] text-white px-5 py-2 rounded-lg text-xs font-bold transition-all shadow-lg shadow-[#238636]/30 active:scale-95 cursor-pointer"
+              >
+                <Check className="w-4 h-4" />
+                <span>Load Preset onto Canvas</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
