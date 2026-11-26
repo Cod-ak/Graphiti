@@ -343,10 +343,13 @@ export default function ExportModal({
                         GitHub OAuth App Not Configured Yet
                       </p>
                       <p className="leading-relaxed text-[#8b949e]">
-                        To enable 1-Click Cloud Paint for everyone, add{" "}
+                        To enable 1-Click Cloud Paint, add{" "}
                         <code className="text-white">GITHUB_CLIENT_ID</code> and{" "}
-                        <code className="text-white">GITHUB_CLIENT_SECRET</code> to your
-                        Vercel Environment Variables (callback URL:{" "}
+                        <code className="text-white">GITHUB_CLIENT_SECRET</code> to{" "}
+                        {origin.includes("localhost")
+                          ? "your local .env.local file"
+                          : "your Vercel Environment Variables"}{" "}
+                        (callback URL:{" "}
                         <code className="text-[#58a6ff]">{origin}/api/auth/callback</code>).
                       </p>
                     </div>
@@ -394,13 +397,25 @@ export default function ExportModal({
                         </p>
                       </div>
                     </div>
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-1 text-[11px] text-[#8b949e] hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-[#21262d] transition-all"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>Switch</span>
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <a
+                        href="https://github.com/settings/applications"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1 text-[11px] text-[#8b949e] hover:text-[#f85149] px-2.5 py-1.5 rounded-lg hover:bg-[#f85149]/10 transition-all"
+                        title="Revoke Graphiti OAuth access directly on GitHub"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span>Revoke</span>
+                      </a>
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-1 text-[11px] text-[#8b949e] hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-[#21262d] transition-all"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Logout</span>
+                      </button>
+                    </div>
                   </div>
 
                   {deployError && (

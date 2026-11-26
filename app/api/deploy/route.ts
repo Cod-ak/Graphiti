@@ -4,6 +4,13 @@ import { calculateCommitPlan } from "@/app/lib/gridCodec";
 import { pushArtCommitsToGitHub } from "@/app/lib/gitPack";
 
 export async function POST(req: NextRequest) {
+  // Basic CSRF origin check
+  const origin = req.headers.get("origin");
+  const reqOrigin = new URL(req.url).origin;
+  if (origin && origin !== reqOrigin) {
+    return NextResponse.json({ error: "Forbidden origin" }, { status: 403 });
+  }
+
   const session = await getSessionFromCookies();
   if (!session) {
     return NextResponse.json(
@@ -22,7 +29,12 @@ export async function POST(req: NextRequest) {
       .replace(/[^a-zA-Z0-9._-]/g, "")
       .slice(0, 80);
 
-    if (!repoName) {
+    if (
+      !repoName ||
+      repoName.includes("..") ||
+      repoName.startsWith(".") ||
+      repoName.startsWith("-")
+    ) {
       return NextResponse.json(
         { error: "Invalid repository name." },
         { status: 400 }

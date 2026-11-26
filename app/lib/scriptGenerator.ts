@@ -24,8 +24,11 @@ export function generateClientScripts(
   const planPairs = plan.map((p) => [p.date, p.count]);
   const planJson = JSON.stringify(planPairs);
 
-  const safeRepo = (repoName || "my-github-art").replace(/[^a-zA-Z0-9._-]/g, "");
-  const safeUser = (username || "").replace(/[^a-zA-Z0-9-]/g, "");
+  let safeRepo = (repoName || "my-github-art").replace(/[^a-zA-Z0-9._-]/g, "");
+  if (!safeRepo || safeRepo.includes("..") || safeRepo.startsWith(".") || safeRepo.startsWith("-")) {
+    safeRepo = "my-github-art";
+  }
+  const safeUser = (username || "").replace(/[^a-zA-Z0-9-]/g, "").replace(/^-+|-+$/g, "");
 
   const powershell = `<#
 ================================================================================

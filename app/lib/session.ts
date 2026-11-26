@@ -13,9 +13,16 @@ const COOKIE_NAME = "graphiti_gh_session";
 
 function getSecretKey(): Buffer {
   const raw =
-    process.env.SESSION_SECRET ||
-    process.env.GITHUB_CLIENT_SECRET ||
-    "graphiti-dev-fallback-secret-change-me";
+    process.env.SESSION_SECRET || process.env.GITHUB_CLIENT_SECRET;
+  if (!raw) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Missing SESSION_SECRET or GITHUB_CLIENT_SECRET in production");
+    }
+    return crypto
+      .createHash("sha256")
+      .update("graphiti-local-dev-only-secret")
+      .digest();
+  }
   return crypto.createHash("sha256").update(raw).digest();
 }
 
