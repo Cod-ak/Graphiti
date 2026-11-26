@@ -179,7 +179,7 @@ fi
 
 GH_USER="${safeUser}"
 if [ -z "$GH_USER" ]; then
-    read -p "Enter your GitHub username (e.g. cod-ak): " GH_USER
+    read -p "Enter your GitHub username (e.g. cod-ak): " GH_USER < /dev/tty
 fi
 REPO_NAME="${safeRepo}"
 REPO_URL="https://github.com/$GH_USER/$REPO_NAME.git"
