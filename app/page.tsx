@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "./components/Header";
 import Grid from "./components/Grid";
 import Toolbar from "./components/Toolbar";
 import ExportModal from "./components/ExportModal";
 import { renderTextToMatrix } from "./lib/font";
 import { getClientPresetMatrix } from "./lib/presets";
-import { generateClientScripts } from "./lib/scriptGenerator";
 
 // Initial Space Invader preset
 const INITIAL_GRID = getClientPresetMatrix("invader", 52);
@@ -45,9 +44,24 @@ export default function Home() {
 
   // Export Modal State
   const [isExportOpen, setIsExportOpen] = useState(false);
-  const [exportLoading, setExportLoading] = useState(false);
-  const [powershellScript, setPowershellScript] = useState("");
-  const [bashScript, setBashScript] = useState("");
+
+  // Restore canvas and auto-open modal after GitHub OAuth redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("connected") === "1" || params.get("oauth_error") || params.get("oauth_setup")) {
+      try {
+        const saved = localStorage.getItem("graphiti_pending_art");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed.grid)) setGrid(parsed.grid);
+          if (typeof parsed.targetYear === "number") setTargetYear(parsed.targetYear);
+          localStorage.removeItem("graphiti_pending_art");
+        }
+      } catch {}
+      setIsExportOpen(true);
+      window.history.replaceState({}, "", "/");
+    }
+  }, []);
 
   // Calculate live stats
   const activeCells = grid.reduce(
@@ -115,8 +129,7 @@ export default function Home() {
 
   const handleCellAction = (row: number, col: number) => {
     if (activeTool === "bucket") {
-      const fillShade = activeLevel;
-      floodFill(row, col, fillShade);
+      floodFill(row, col, activeLevel);
     } else {
       setGrid((prev) => {
         const next = prev.map((r) => [...r]);
@@ -133,7 +146,7 @@ export default function Home() {
   const handleInvert = () => {
     setGrid((prev) =>
       prev.map((row) =>
-        row.map((cell) => (cell === 0 ? (activeLevel || 4) : 0))
+        row.map((cell) => (cell === 0 ? activeLevel || 4 : 0))
       )
     );
   };
@@ -156,26 +169,6 @@ export default function Home() {
     });
   };
 
-  // 4. Open Export Modal (Instant Client Generation)
-  const handleOpenExport = () => {
-    setIsExportOpen(true);
-    setExportLoading(true);
-
-    try {
-      const { powershell, bash } = generateClientScripts(
-        grid,
-        targetYear,
-        "my-github-art"
-      );
-      setPowershellScript(powershell);
-      setBashScript(bash);
-    } catch (err) {
-      console.error("Failed to generate scripts", err);
-    } finally {
-      setExportLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen flex flex-col bg-[#0d1117] text-[#f0f6fc]">
       {/* 1. Header with Stats & Export Action */}
@@ -183,12 +176,12 @@ export default function Home() {
         activeCells={activeCells}
         totalCommits={totalCommits}
         year={targetYear}
-        onOpenExport={handleOpenExport}
+        onOpenExport={() => setIsExportOpen(true)}
       />
 
       {/* 2. Main Studio Viewport */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8 space-y-6 flex flex-col">
-        {/* UPPER SECTION: Tools, Generators & Action Buttons (TOP) */}
+        {/* UPPER SECTION: Tools, Generators & Action Buttons */}
         <section>
           <Toolbar
             generatorMode={generatorMode}
@@ -218,7 +211,7 @@ export default function Home() {
           />
         </section>
 
-        {/* LOWER SECTION: Live GitHub Graph Canvas (BOTTOM) */}
+        {/* LOWER SECTION: Live GitHub Graph Canvas */}
         <section className="flex flex-col items-center justify-center p-6 bg-[#010409] border border-[#30363d] rounded-2xl shadow-inner overflow-hidden">
           <div className="w-full flex justify-between items-center mb-4 text-xs font-mono text-[#8b949e]">
             <span className="flex items-center gap-2">
@@ -238,7 +231,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Interactive 7x52 Grid */}
           <Grid
             grid={grid}
             onCellClick={handleCellAction}
@@ -254,16 +246,13 @@ export default function Home() {
         </section>
       </main>
 
-      {/* Export Code Modal */}
+      {/* Export / Deploy Modal (Option 1 + Option 2) */}
       <ExportModal
         isOpen={isExportOpen}
         onClose={() => setIsExportOpen(false)}
+        grid={grid}
         targetYear={targetYear}
         activeDays={activeCells}
-        totalCommits={totalCommits}
-        powershellScript={powershellScript}
-        bashScript={bashScript}
-        loading={exportLoading}
       />
     </div>
   );

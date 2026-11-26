@@ -1,64 +1,47 @@
-// Client-side Script Generator for Graphiti
-// Generates PowerShell (.ps1) and Bash (.sh) scripts directly in the browser!
+import { calculateCommitPlan } from "./gridCodec";
 
-export function getStartDateForYear(year: number): Date {
-  const jan1 = new Date(Date.UTC(year, 0, 1));
-  const dayOfWeek = jan1.getUTCDay(); // 0 is Sunday
-  // Rewind to the preceding Sunday
-  const start = new Date(jan1);
-  start.setUTCDate(jan1.getUTCDate() - dayOfWeek);
-  return start;
+export interface ScriptOptions {
+  grid: number[][];
+  year: number;
+  repoName?: string;
+  username?: string;
+  speedMode?: "fast" | "deep";
+  autoPush?: boolean;
 }
 
 export function generateClientScripts(
   grid: number[][],
   year: number = 2026,
-  repoName: string = "my-github-art"
+  repoName: string = "my-github-art",
+  username: string = "",
+  speedMode: "fast" | "deep" = "fast",
+  autoPush: boolean = true
 ): { powershell: string; bash: string; totalCommits: number; activeDays: number } {
-  const commitCounts: Record<number, number> = {
-    0: 0,
-    1: 1,
-    2: 3,
-    3: 6,
-    4: 10,
-  };
-
-  const startDate = getStartDateForYear(year);
-  const plan: [string, number][] = [];
-  let totalCommits = 0;
-
-  for (let col = 0; col < 52; col++) {
-    for (let row = 0; row < 7; row++) {
-      const level = grid[row]?.[col] ?? 0;
-      const count = commitCounts[level] || 0;
-      if (count > 0) {
-        const cellDate = new Date(startDate);
-        cellDate.setUTCDate(startDate.getUTCDate() + col * 7 + row);
-        const dateStr = cellDate.toISOString().split("T")[0];
-        plan.push([dateStr, count]);
-        totalCommits += count;
-      }
-    }
-  }
-
+  const plan = calculateCommitPlan(grid, year, speedMode);
+  const totalCommits = plan.reduce((acc, item) => acc + item.count, 0);
   const activeDays = plan.length;
-  const planJson = JSON.stringify(plan);
+
+  const planPairs = plan.map((p) => [p.date, p.count]);
+  const planJson = JSON.stringify(planPairs);
+
+  const safeRepo = (repoName || "my-github-art").replace(/[^a-zA-Z0-9._-]/g, "");
+  const safeUser = (username || "").replace(/[^a-zA-Z0-9-]/g, "");
 
   const powershell = `<#
 ================================================================================
-  Graphiti Art Studio - Automated Git Commit Generator
+  Graphiti Art Studio - Automated Git Commit Generator (Append Mode)
   Target Year   : ${year}
   Total Commits : ${totalCommits}
   Active Days   : ${activeDays}
 ================================================================================
 #>
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 Write-Host ""
 Write-Host "🎨 ========================================================" -ForegroundColor Cyan
 Write-Host "   Graphiti: Digital Street Art for GitHub Profile" -ForegroundColor Green
-Write-Host "   Generating ${totalCommits} backdated commits across ${activeDays} days..." -ForegroundColor Yellow
+Write-Host "   Target: ${year} | Mode: Append | Commits: ${totalCommits}" -ForegroundColor Yellow
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -67,12 +50,42 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
+$ghUser = "${safeUser}"
+if ([string]::IsNullOrWhiteSpace($ghUser)) {
+    $ghUser = Read-Host "Enter your GitHub username (e.g. cod-ak)"
+}
+$ghUser = $ghUser.Trim()
+$repoName = "${safeRepo}"
+$repoUrl = "https://github.com/$ghUser/$repoName.git"
+
+$origDir = Get-Location
+$workDir = ${
+    autoPush
+      ? 'Join-Path $env:TEMP ("graphiti-art-" + [guid]::NewGuid().ToString("N").Substring(0, 8))'
+      : '$origDir.Path'
+  }
+
+if ($workDir -ne $origDir.Path) {
+    New-Item -ItemType Directory -Path $workDir -Force | Out-Null
+    Set-Location $workDir
+}
+
+Write-Host "[1/4] Preparing repository ($repoUrl)..." -ForegroundColor Cyan
+
+# Append Mode: try shallow-cloning existing main branch first
 if (-not (Test-Path .git)) {
-    Write-Host "[1/3] Initializing new Git repository..." -ForegroundColor Cyan
-    git init -q
-    git checkout -b main 2>$null
+    git clone --depth 1 --branch main $repoUrl . 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Get-ChildItem -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        git init -q
+        git branch -M main
+        git remote add origin $repoUrl
+        Write-Host "  -> Initialized fresh repository (new main branch)" -ForegroundColor DarkGray
+    } else {
+        Write-Host "  -> Synced existing repository (Append Mode: keeping old years!)" -ForegroundColor Green
+    }
 } else {
-    Write-Host "[1/3] Using existing repository in $pwd..." -ForegroundColor Cyan
+    Write-Host "  -> Using existing local repository..." -ForegroundColor Cyan
 }
 
 $planJson = @'
@@ -83,7 +96,13 @@ $plan = ConvertFrom-Json $planJson
 $total = ${totalCommits}
 $done = 0
 
-Write-Host "[2/3] Writing backdated commits..." -ForegroundColor Cyan
+if ($total -eq 0) {
+    Write-Host "No pixels painted on canvas! Nothing to commit." -ForegroundColor Yellow
+    Set-Location $origDir
+    exit 0
+}
+
+Write-Host "[2/4] Writing $total backdated commits for ${year}..." -ForegroundColor Cyan
 
 foreach ($entry in $plan) {
     $dateStr = $entry[0]
@@ -91,9 +110,9 @@ foreach ($entry in $plan) {
     
     for ($i = 0; $i -lt $count; $i++) {
         $minuteOffset = $i * 5
-        $hour = 12 + [math]::Floor($minuteOffset / 60)
-        $minute = $minuteOffset % 60
-        $timestamp = ("{0} {1:D2}:{2:D2}:00 +0000" -f $dateStr, $hour, $minute)
+        $hour = [int](12 + [math]::Floor($minuteOffset / 60))
+        $minute = [int]($minuteOffset % 60)
+        $timestamp = ("{0} {1:00}:{2:00}:00 +0000" -f $dateStr, $hour, $minute)
         
         $env:GIT_AUTHOR_DATE = $timestamp
         $env:GIT_COMMITTER_DATE = $timestamp
@@ -109,24 +128,38 @@ foreach ($entry in $plan) {
     }
 }
 
+Remove-Item Env:\\GIT_AUTHOR_DATE -ErrorAction SilentlyContinue
+Remove-Item Env:\\GIT_COMMITTER_DATE -ErrorAction SilentlyContinue
+
 Write-Host ""
-Write-Host "[3/3] Done! ${totalCommits} commits created successfully." -ForegroundColor Green
-Write-Host ""
-Write-Host "Next steps to publish on GitHub:" -ForegroundColor Yellow
-Write-Host "  1. Create a new empty repository on GitHub named '${repoName}'"
-Write-Host "  2. Link remote and push:"
-Write-Host "     git remote add origin https://github.com/<your-username>/${repoName}.git"
-Write-Host "     git push -u origin main"
+Write-Host "[3/4] Commits ready! Pushing to GitHub..." -ForegroundColor Cyan
+
+${
+  autoPush
+    ? `git push -u origin main
+if ($LASTEXITCODE -eq 0) {
+    Write-Host ""
+    Write-Host "🎉 [4/4] Success! Your ${year} graph is live at: https://github.com/$ghUser" -ForegroundColor Green
+    Write-Host "   (Click '${year}' on your GitHub profile calendar to view it!)" -ForegroundColor Cyan
+} else {
+    Write-Host ""
+    Write-Host "⚠️ Push failed. Make sure the repository '$repoName' exists at https://github.com/new" -ForegroundColor Yellow
+    Write-Host "   and that you are signed into Git as '$ghUser'." -ForegroundColor Yellow
+}
+Set-Location $origDir
+Remove-Item -Path $workDir -Recurse -Force -ErrorAction SilentlyContinue`
+    : `Write-Host "Done! Run: git remote add origin $repoUrl; git push -u origin main" -ForegroundColor Green`
+}
 Write-Host ""
 `;
 
   const bashEntries = plan
-    .map(([date, count]) => `  "${date} ${count}"`)
+    .map((p) => `  "${p.date} ${p.count}"`)
     .join("\n");
 
   const bash = `#!/usr/bin/env bash
 # ================================================================================
-#   Graphiti Art Studio - Automated Git Commit Generator
+#   Graphiti Art Studio - Automated Git Commit Generator (Append Mode)
 #   Target Year   : ${year}
 #   Total Commits : ${totalCommits}
 #   Active Days   : ${activeDays}
@@ -136,7 +169,7 @@ set -e
 
 echo ""
 echo "🎨 Graphiti: Digital Street Art for GitHub Profile"
-echo "   Generating ${totalCommits} commits across ${activeDays} days..."
+echo "   Target: ${year} | Mode: Append | Commits: ${totalCommits}"
 echo ""
 
 if ! command -v git &> /dev/null; then
@@ -144,12 +177,26 @@ if ! command -v git &> /dev/null; then
     exit 1
 fi
 
-if [ ! -d ".git" ]; then
-    echo "[1/3] Initializing new Git repository..."
-    git init -q
-    git checkout -b main 2>/dev/null || true
+GH_USER="${safeUser}"
+if [ -z "$GH_USER" ]; then
+    read -p "Enter your GitHub username (e.g. cod-ak): " GH_USER
+fi
+REPO_NAME="${safeRepo}"
+REPO_URL="https://github.com/$GH_USER/$REPO_NAME.git"
+
+ORIG_DIR=$(pwd)
+WORK_DIR=$(mktemp -d)
+cd "$WORK_DIR"
+
+echo "[1/4] Preparing repository ($REPO_URL)..."
+if git clone --depth 1 --branch main "$REPO_URL" . 2>/dev/null; then
+    echo "  -> Synced existing repository (Append Mode: keeping old years!)"
 else
-    echo "[1/3] Using existing repository in $(pwd)..."
+    rm -rf .git *
+    git init -q
+    git branch -M main
+    git remote add origin "$REPO_URL"
+    echo "  -> Initialized fresh repository (new main branch)"
 fi
 
 PLAN=(
@@ -159,7 +206,14 @@ ${bashEntries}
 TOTAL=${totalCommits}
 DONE=0
 
-echo "[2/3] Writing backdated commits..."
+if [ "$TOTAL" -eq 0 ]; then
+    echo "No pixels painted on canvas!"
+    cd "$ORIG_DIR"
+    rm -rf "$WORK_DIR"
+    exit 0
+fi
+
+echo "[2/4] Writing $TOTAL backdated commits for ${year}..."
 
 for entry in "\${PLAN[@]}"; do
     DATE=\$(echo "\$entry" | awk '{print \$1}')
@@ -184,14 +238,23 @@ for entry in "\${PLAN[@]}"; do
     done
 done
 
+unset GIT_AUTHOR_DATE
+unset GIT_COMMITTER_DATE
+
 echo ""
-echo "[3/3] Done! ${totalCommits} commits generated successfully."
-echo ""
-echo "Next steps to publish on GitHub:"
-echo "  1. Create a repository on GitHub named '${repoName}'"
-echo "  2. Link remote and push:"
-echo "     git remote add origin https://github.com/<your-username>/${repoName}.git"
-echo "     git push -u origin main"
+echo "[3/4] Commits ready! Pushing to GitHub..."
+
+if git push -u origin main; then
+    echo ""
+    echo "🎉 [4/4] Success! Your ${year} graph is live at: https://github.com/$GH_USER"
+    echo "   (Click '${year}' on your GitHub profile calendar to view it!)"
+else
+    echo ""
+    echo "⚠️ Push failed. Make sure '$REPO_NAME' exists at https://github.com/new."
+fi
+
+cd "$ORIG_DIR"
+rm -rf "$WORK_DIR"
 echo ""
 `;
 

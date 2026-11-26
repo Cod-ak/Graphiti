@@ -94,7 +94,7 @@ def generate_powershell_code(commit_plan: List, repo_name: str) -> str:
 ================================================================================
 #>
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 Write-Host ""
 Write-Host "🎨 ========================================================" -ForegroundColor Cyan
@@ -113,7 +113,7 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {{
 if (-not (Test-Path .git)) {{
     Write-Host "[1/3] Initializing new Git repository..." -ForegroundColor Cyan
     git init -q
-    git checkout -b main 2>$null
+    git branch -M main
 }} else {{
     Write-Host "[1/3] Using existing repository in $pwd..." -ForegroundColor Cyan
 }}
@@ -135,8 +135,8 @@ foreach ($entry in $plan) {{
     
     for ($i = 0; $i -lt $count; $i++) {{
         $minuteOffset = $i * 5
-        $hour = 12 + [math]::Floor($minuteOffset / 60)
-        $minute = $minuteOffset % 60
+        $hour = [int](12 + [math]::Floor($minuteOffset / 60))
+        $minute = [int]($minuteOffset % 60)
         $timestamp = ("{{0}} {{1:D2}}:{{2:D2}}:00 +0000" -f $dateStr, $hour, $minute)
         
         $env:GIT_AUTHOR_DATE = $timestamp
