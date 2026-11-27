@@ -26,7 +26,7 @@ export default function Header({
           <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
             Graphiti Studio
             <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-[#238636]/20 border border-[#238636]/40 text-[#39d353]">
-              v1.0 (Option B)
+              v1.0
             </span>
           </h1>
           <p className="text-xs text-[#8b949e]">
@@ -64,7 +64,7 @@ export default function Header({
           className="flex items-center gap-2 bg-[#238636] hover:bg-[#2ea043] text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-md shadow-[#238636]/30 active:scale-95"
         >
           <Terminal className="w-4 h-4" />
-          <span>Export & Run Script</span>
+          <span>Paint to GitHub</span>
         </button>
       </div>
     </header>

@@ -13,6 +13,8 @@ import {
   RefreshCw,
   Calendar,
   Check,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 
 interface ToolbarProps {
@@ -45,6 +47,10 @@ interface ToolbarProps {
   onClear: () => void;
   onInvert: () => void;
   onShift: (dir: "left" | "right" | "up" | "down") => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 
   // Target Calendar
   targetYear: number;
@@ -93,6 +99,10 @@ export default function Toolbar({
   onClear,
   onInvert,
   onShift,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
   targetYear,
   setTargetYear,
 }: ToolbarProps) {
@@ -162,8 +172,28 @@ export default function Toolbar({
           </div>
         </div>
 
-        {/* Global Manipulators: Shift, Invert, Clear */}
-        <div className="flex items-center gap-2">
+        {/* Global Manipulators: Undo/Redo, Shift, Invert, Clear */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Undo / Redo */}
+          <div className="flex bg-[#0d1117] p-1 rounded-xl border border-[#30363d]">
+            <button
+              onClick={onUndo}
+              disabled={!canUndo}
+              className="p-1.5 text-xs text-[#8b949e] hover:text-white hover:bg-[#21262d] disabled:opacity-30 disabled:pointer-events-none rounded-lg transition-all"
+              title="Undo (Ctrl+Z)"
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={onRedo}
+              disabled={!canRedo}
+              className="p-1.5 text-xs text-[#8b949e] hover:text-white hover:bg-[#21262d] disabled:opacity-30 disabled:pointer-events-none rounded-lg transition-all"
+              title="Redo (Ctrl+Y)"
+            >
+              <Redo2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           {/* Week Shift */}
           <div className="flex bg-[#0d1117] p-1 rounded-xl border border-[#30363d]">
             <button

@@ -80,7 +80,7 @@ export default function Grid({
                   key={`${row}-${col}`}
                   onMouseDown={() => handleMouseDown(row, col)}
                   onMouseEnter={() => handleMouseEnter(row, col)}
-                  className={`w-[12px] h-[12px] rounded-[2.5px] border cursor-pointer transition-all duration-75 select-none ${
+                  className={`w-[12px] h-[12px] rounded-[2.5px] border cursor-pointer transition-all duration-75 select-none touch-none ${
                     SHADE_CLASSES[level]
                   } ${isHovered ? "scale-125 z-10 !border-white ring-2 ring-white/30" : ""}`}
                   title={`Week ${col + 1}, ${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][row]} • Level ${level}`}

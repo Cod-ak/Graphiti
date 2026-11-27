@@ -45,6 +45,58 @@ export default function Home() {
   // Export Modal State
   const [isExportOpen, setIsExportOpen] = useState(false);
 
+  // Undo / Redo History & Feedback Toast
+  const [history, setHistory] = useState<number[][][]>([INITIAL_GRID]);
+  const [historyIndex, setHistoryIndex] = useState<number>(0);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => {
+      setToastMsg((prev) => (prev === msg ? null : prev));
+    }, 1800);
+  };
+
+  const pushGrid = (nextGrid: number[][]) => {
+    const sliced = history.slice(0, historyIndex + 1);
+    const updated = [...sliced, nextGrid].slice(-30);
+    setHistory(updated);
+    setHistoryIndex(updated.length - 1);
+    setGrid(nextGrid);
+  };
+
+  const handleUndo = () => {
+    if (historyIndex <= 0) return;
+    const prevIdx = historyIndex - 1;
+    setHistoryIndex(prevIdx);
+    setGrid(history[prevIdx]);
+  };
+
+  const handleRedo = () => {
+    if (historyIndex >= history.length - 1) return;
+    const nextIdx = historyIndex + 1;
+    setHistoryIndex(nextIdx);
+    setGrid(history[nextIdx]);
+  };
+
+  // Keyboard shortcuts for Undo (Ctrl+Z) / Redo (Ctrl+Y / Ctrl+Shift+Z)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) handleRedo();
+        else handleUndo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
   // Restore canvas and auto-open modal after GitHub OAuth redirect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -53,7 +105,11 @@ export default function Home() {
         const saved = localStorage.getItem("graphiti_pending_art");
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed.grid)) setGrid(parsed.grid);
+          if (Array.isArray(parsed.grid)) {
+            setGrid(parsed.grid);
+            setHistory([parsed.grid]);
+            setHistoryIndex(0);
+          }
           if (typeof parsed.targetYear === "number") setTargetYear(parsed.targetYear);
           localStorage.removeItem("graphiti_pending_art");
         }
@@ -89,13 +145,15 @@ export default function Home() {
       textAlign,
       0
     );
-    setGrid(rendered);
+    pushGrid(rendered);
+    showToast("✓ Text rendered onto canvas");
   };
 
   // 2. ACTION: Load Preset onto Canvas
   const handleApplyPreset = () => {
     const matrix = getClientPresetMatrix(selectedPreset, 52);
-    setGrid(matrix);
+    pushGrid(matrix);
+    showToast("✓ Preset loaded onto canvas");
   };
 
   // 3. Drawing & Editing Tools
@@ -124,49 +182,59 @@ export default function Home() {
       queue.push([r, c - 1]);
     }
 
-    setGrid(next);
+    pushGrid(next);
   };
 
-  const handleCellAction = (row: number, col: number) => {
+  const handleCellClick = (row: number, col: number) => {
     if (activeTool === "bucket") {
       floodFill(row, col, activeLevel);
     } else {
-      setGrid((prev) => {
-        const next = prev.map((r) => [...r]);
-        next[row][col] = activeTool === "pencil" ? activeLevel : 0;
-        return next;
-      });
+      const next = grid.map((r) => [...r]);
+      next[row][col] = activeTool === "pencil" ? activeLevel : 0;
+      pushGrid(next);
     }
   };
 
+  const handleCellHover = (row: number, col: number) => {
+    if (activeTool === "bucket") return;
+    setGrid((prev) => {
+      const next = prev.map((r) => [...r]);
+      next[row][col] = activeTool === "pencil" ? activeLevel : 0;
+      setHistory((h) => {
+        const copy = [...h];
+        copy[historyIndex] = next;
+        return copy;
+      });
+      return next;
+    });
+  };
+
   const handleClear = () => {
-    setGrid(Array.from({ length: 7 }, () => Array(52).fill(0)));
+    pushGrid(Array.from({ length: 7 }, () => Array(52).fill(0)));
+    showToast("Canvas cleared (Ctrl+Z to undo)");
   };
 
   const handleInvert = () => {
-    setGrid((prev) =>
-      prev.map((row) =>
-        row.map((cell) => (cell === 0 ? activeLevel || 4 : 0))
-      )
+    const next = grid.map((row) =>
+      row.map((cell) => (cell === 0 ? activeLevel || 4 : 0))
     );
+    pushGrid(next);
   };
 
   const handleShift = (dir: "left" | "right" | "up" | "down") => {
-    setGrid((prev) => {
-      const next = Array.from({ length: 7 }, () => Array(52).fill(0));
-      for (let r = 0; r < 7; r++) {
-        for (let c = 0; c < 52; c++) {
-          let tr = r;
-          let tc = c;
-          if (dir === "up") tr = (r - 1 + 7) % 7;
-          if (dir === "down") tr = (r + 1) % 7;
-          if (dir === "left") tc = (c - 1 + 52) % 52;
-          if (dir === "right") tc = (c + 1) % 52;
-          next[tr][tc] = prev[r][c];
-        }
+    const next = Array.from({ length: 7 }, () => Array(52).fill(0));
+    for (let r = 0; r < 7; r++) {
+      for (let c = 0; c < 52; c++) {
+        let tr = r;
+        let tc = c;
+        if (dir === "up") tr = (r - 1 + 7) % 7;
+        if (dir === "down") tr = (r + 1) % 7;
+        if (dir === "left") tc = (c - 1 + 52) % 52;
+        if (dir === "right") tc = (c + 1) % 52;
+        next[tr][tc] = grid[r][c];
       }
-      return next;
-    });
+    }
+    pushGrid(next);
   };
 
   return (
@@ -190,6 +258,11 @@ export default function Home() {
             <span className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#39d353] animate-pulse" />
               LIVE CANVAS • 7 ROWS × 52 WEEKS
+              {toastMsg && (
+                <span className="ml-2 px-2 py-0.5 rounded-full bg-[#238636]/20 border border-[#238636]/40 text-[#39d353] text-[10px] font-semibold">
+                  {toastMsg}
+                </span>
+              )}
             </span>
             <div className="flex items-center gap-2">
               <span>Less</span>
@@ -206,8 +279,8 @@ export default function Home() {
 
           <Grid
             grid={grid}
-            onCellClick={handleCellAction}
-            onCellHover={handleCellAction}
+            onCellClick={handleCellClick}
+            onCellHover={handleCellHover}
             isMouseDown={isMouseDown}
             setIsMouseDown={setIsMouseDown}
           />
@@ -243,6 +316,10 @@ export default function Home() {
             onClear={handleClear}
             onInvert={handleInvert}
             onShift={handleShift}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            canUndo={historyIndex > 0}
+            canRedo={historyIndex < history.length - 1}
             targetYear={targetYear}
             setTargetYear={setTargetYear}
           />
