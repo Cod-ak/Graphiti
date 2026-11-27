@@ -181,38 +181,11 @@ export default function Home() {
 
       {/* 2. Main Studio Viewport */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8 space-y-6 flex flex-col">
-        {/* UPPER SECTION: Tools, Generators & Action Buttons */}
-        <section>
-          <Toolbar
-            generatorMode={generatorMode}
-            setGeneratorMode={setGeneratorMode}
-            text={text}
-            setText={setText}
-            textAlign={textAlign}
-            setTextAlign={setTextAlign}
-            charSpacing={charSpacing}
-            setCharSpacing={setCharSpacing}
-            textLevel={textLevel}
-            setTextLevel={setTextLevel}
-            onApplyText={handleApplyText}
-            selectedPreset={selectedPreset}
-            setSelectedPreset={setSelectedPreset}
-            presetsList={presetsList}
-            onApplyPreset={handleApplyPreset}
-            activeTool={activeTool}
-            setActiveTool={setActiveTool}
-            activeLevel={activeLevel}
-            setActiveLevel={setActiveLevel}
-            onClear={handleClear}
-            onInvert={handleInvert}
-            onShift={handleShift}
-            targetYear={targetYear}
-            setTargetYear={setTargetYear}
-          />
-        </section>
-
-        {/* LOWER SECTION: Live GitHub Graph Canvas */}
-        <section className="flex flex-col items-center justify-center p-6 bg-[#010409] border border-[#30363d] rounded-2xl shadow-inner overflow-hidden">
+        {/* UPPER SECTION: Live GitHub Graph Canvas */}
+        <section
+          key="graph-section"
+          className="flex flex-col items-center justify-center p-6 bg-[#010409] border border-[#30363d] rounded-2xl shadow-inner overflow-hidden"
+        >
           <div className="w-full flex justify-between items-center mb-4 text-xs font-mono text-[#8b949e]">
             <span className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#39d353] animate-pulse" />
@@ -243,6 +216,36 @@ export default function Home() {
             <span>Click or drag over grid to draw freely</span>
             <span>Aspect Ratio 7.4 : 1 • Sunday-aligned</span>
           </div>
+        </section>
+
+        {/* LOWER SECTION: Tools, Generators & Action Buttons */}
+        <section key="toolbar-section">
+          <Toolbar
+            generatorMode={generatorMode}
+            setGeneratorMode={setGeneratorMode}
+            text={text}
+            setText={setText}
+            textAlign={textAlign}
+            setTextAlign={setTextAlign}
+            charSpacing={charSpacing}
+            setCharSpacing={setCharSpacing}
+            textLevel={textLevel}
+            setTextLevel={setTextLevel}
+            onApplyText={handleApplyText}
+            selectedPreset={selectedPreset}
+            setSelectedPreset={setSelectedPreset}
+            presetsList={presetsList}
+            onApplyPreset={handleApplyPreset}
+            activeTool={activeTool}
+            setActiveTool={setActiveTool}
+            activeLevel={activeLevel}
+            setActiveLevel={setActiveLevel}
+            onClear={handleClear}
+            onInvert={handleInvert}
+            onShift={handleShift}
+            targetYear={targetYear}
+            setTargetYear={setTargetYear}
+          />
         </section>
       </main>
 
